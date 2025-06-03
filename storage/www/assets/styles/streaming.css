@@ -6,7 +6,9 @@
 * {
     font-family: "SofiaSansSemiCondensed-Bold", Arial, sans-serif;
 }
-
+.text {
+    color: white;
+}
 .p_boxdark { 
     background-color: rgba(28,61,181);
     display: block;
