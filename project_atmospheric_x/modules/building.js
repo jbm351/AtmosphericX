@@ -90,7 +90,7 @@ class Building {
       */
 
     getEventTag = function(event) { 
-        let tagDictionary = loader.cache.configurations.definitions.tag_definitions
+        let tagDictionary = loader.cache.configurations.tags
         let tags = [`No tags found`]
         for (let [key, value] of Object.entries(tagDictionary)) { 
             if (event.properties.description.toLowerCase().includes(key.toLowerCase())) {
@@ -111,14 +111,12 @@ class Building {
     getEventActions = function(event) { 
         let defaultAudio = loader.cache.configurations.tone_sounds.beep
         let eventDictionary = loader.cache.configurations.alert_dictionary[event.properties.event]
-        let imageDictionary = loader.cache.configurations.alert_banners[event.properties.event]
         let newAlertAudio = (eventDictionary == undefined) ? loader.cache.configurations.alert_dictionary.UNK.new : eventDictionary.new
         let updateAlertAudio = (eventDictionary == undefined) ? loader.cache.configurations.alert_dictionary.UNK.update : eventDictionary.update
         let cancelAlertAudio = (eventDictionary == undefined) ? loader.cache.configurations.alert_dictionary.UNK.cancel : eventDictionary.cancel
         let easAudio = (eventDictionary == undefined) ? loader.cache.configurations.alert_dictionary.UNK.eas : eventDictionary.eas
         let sirenAudio = (eventDictionary == undefined) ? loader.cache.configurations.alert_dictionary.UNK.siren : eventDictionary.siren
         let autobeepAudio = (eventDictionary == undefined) ? loader.cache.configurations.alert_dictionary.UNK.autobeep : eventDictionary.autobeep
-        let alertImage = (imageDictionary == undefined) ? loader.cache.configurations.alert_banners.UNK : imageDictionary
         let editedEventName = (eventDictionary == undefined) ? event.properties.event : eventDictionary.card
         let messageState = [
             { event: `Update`, message: `Updated`, audio: updateAlertAudio},
@@ -140,7 +138,6 @@ class Building {
             name: editedEventName,
             audiopresets: { new: newAlertAudio, update: updateAlertAudio, cancel: cancelAlertAudio },
             audio: defaultAudio,
-            gif: alertImage,
             eas: easAudio,
             siren: sirenAudio,
             autobeep: autobeepAudio,
@@ -182,11 +179,6 @@ class Building {
                 ignoreWarning = true
             }
         }
-        if (loader.cache.configurations.sources.primary_sources.noaa_weather_wire_service.enabled == true) {
-            if (event.action != undefined && event.action != `N/A`) {
-                event.properties.messageType = event.action
-            }
-        }
         event.properties.event = eventActions.name
         return {
             raw: event,
@@ -198,8 +190,8 @@ class Building {
                 issued: event.properties.sent,
                 locations: event.properties.areaDesc,
                 description: event.properties.description,
-                hail: event.properties.parameters.maxHailSize,
-                wind: event.properties.parameters.maxWindGust,
+                hail: event.properties.parameters.maxHailSize != `N/A` ? `${event.properties.parameters.maxHailSize} IN` : `N/A`,
+                wind: event.properties.parameters.maxWindGust == "0" ? `N/A` : `${event.properties.parameters.maxWindGust}`,
                 tornado: event.properties.parameters.tornadoDetection,
                 damage: damage[0],
                 sender: event.properties.senderName,
@@ -220,6 +212,7 @@ class Building {
 
     buildCache = async function(rawData, isUsingWire) {
         try {
+            rawData = loader.modules.hooks.filteringHtml(rawData)
             if (rawData.NoaaWeatherWireService != undefined && isUsingWire == true ) {
                 let response = loader.modules.parsing.readAlerts(rawData.NoaaWeatherWireService)
                 loader.cache.active = response.message
@@ -229,11 +222,11 @@ class Building {
                 loader.cache.active = response.message
             }
             if (rawData.SpotterNetwork != undefined) {
-                let response = loader.modules.parsing.readSpotterNetwork(rawData.SpotterNetwork);
+                let response = loader.modules.parsing.readSpotterNetwork(rawData.SpotterNetwork)
                 loader.cache.spotters = response.message;
             }
             if (rawData.MesoscaleDiscussions != undefined) {
-                let response = loader.modules.parsing.readRawMesoscaleDicussions(rawData.MesoscaleDiscussions);
+                let response = loader.modules.parsing.readRawMesoscaleDicussions(rawData.MesoscaleDiscussions)
                 loader.cache.discussions = response.message;
             }
             if (rawData.RealtimeIRL != undefined) { 
@@ -255,31 +248,31 @@ class Building {
                 loader.cache.realtime.state = rawData.LocationServices.features[5].text;
             }
             if (rawData.SpotterNetworkReports != undefined) {
-                let response = loader.modules.parsing.rawSpotterNetworkReports(rawData.SpotterNetworkReports);
+                let response = loader.modules.parsing.rawSpotterNetworkReports(rawData.SpotterNetworkReports)
                 loader.cache.reports = response.message
             }
             if (rawData.mPingReports != undefined) {
-                let response = loader.modules.parsing.rawRawMpingReports(rawData.mPingReports);
+                let response = loader.modules.parsing.rawRawMpingReports(rawData.mPingReports)
                 loader.cache.reports = response.message
             }
             if (rawData.GRLevelXReports != undefined) {
-                let response = loader.modules.parsing.readRawGrlevelXReports(rawData.GRLevelXReports);
+                let response = loader.modules.parsing.readRawGrlevelXReports(rawData.GRLevelXReports)
                 loader.cache.reports = response.message
             }
             if (rawData.IEMReports != undefined) {
-                let response = loader.modules.parsing.rawIemReports(rawData.IEMReports.features);
+                let response = loader.modules.parsing.rawIemReports(rawData.IEMReports.features)
                 loader.cache.reports = response.message
             }
             if (rawData.ProbTornado != undefined) {
-                let response = loader.modules.parsing.rawProbabilityReports(rawData.ProbTornado, `tornado`);
+                let response = loader.modules.parsing.rawProbabilityReports(rawData.ProbTornado, `tornado`)
                 loader.cache.torprob = response.message
             }
             if (rawData.ProbSevere != undefined) {
-                let response = loader.modules.parsing.rawProbabilityReports(rawData.ProbSevere, `severe`);
+                let response = loader.modules.parsing.rawProbabilityReports(rawData.ProbSevere, `severe`)
                 loader.cache.svrprob = response.message
             }
             if (rawData.wxRadio != undefined) {
-                let response = loader.modules.parsing.readWxRadio(rawData.wxRadio);
+                let response = loader.modules.parsing.readWxRadio(rawData.wxRadio)
                 loader.cache.wxRadio = response.message
             }
             loader.modules.websocket.onCacheReady()

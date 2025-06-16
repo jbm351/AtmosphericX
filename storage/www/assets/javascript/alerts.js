@@ -55,9 +55,11 @@ class Alerts {
             if (this.storage.alertManual != data.details.name + `-` + data.details.locations + `-` + data.details.type) {
                 this.storage.alertManual = data.details.name + `-` + data.details.locations + `-` + data.details.type
                 if (!data.metadata.ignored) { this.storage.alertsQueue.push(data) }
-                if (isDashboard) { this.library.createNotification(`<span style="color: red;">${data.details.name}</span> has been <span style="color: green;">${data.details.type}</span>`) }
+                if (isDashboard) { 
+                    this.createDashboardPriorityAlert(data)
+                    this.library.createNotification(`<span style="color: red;">${data.details.name}</span> has been <span style="color: green;">${data.details.type}</span>`) 
+                }
             }
-            // check if in active
             let isInActive = this.storage.active.find(x => x.details.name == data.details.name && x.details.locations == data.details.locations)
             if (isInActive == undefined) { this.storage.active.push(data) }
         }
@@ -74,7 +76,10 @@ class Alerts {
                 if (emergencyAlertPlayed != undefined) { data.metadata.siren = false; data.metadata.eas = false; }
                 if (data.metadata.siren == true || data.metadata.eas == true) { this.storage.emergencyAlerts.push(`${data.details.name}-${data.details.locations}`) } // Add to sound alerts if not already in the list
                 if (canBePushed) { 
-                    if (isDashboard) { this.library.createNotification(`<span style="color: red;">${data.details.name}</span> has been <span style="color: green;">${data.details.type}</span>`) }
+                    if (isDashboard) { 
+                        this.createDashboardPriorityAlert(data)
+                        this.library.createNotification(`<span style="color: red;">${data.details.name}</span> has been <span style="color: green;">${data.details.type}</span>`) 
+                    }
                     this.storage.alertsQueue.push(data)
                     this.storage.lastQueue.push(data)
                 }
@@ -89,40 +94,64 @@ class Alerts {
         return this.storage.alertsQueue
     }
 
+
     /**
-      * @function createAnimatedAlert
-      * @description Displays an alert using a GIF animation with a title and subtitle in the UI.
-      * 
-      * @param {string} animationURL - The URL of the GIF animation to display.
-      * @param {string} [alertTitle=`Test Message`] - The title of the alert to display.
-      * @param {string} [alertMessage=`This is a test message`] - The subtitle of the alert to display.
+      * Creates a dashboard priority alert similar to NOAA Weather Radio Alerts. Starts off with the Uniden Siren and gives a confirmation if you want to proceed to listen to the alert with
+      * text to speech. 
+      * @param {Object} alert - The alert object containing details about the alert.
       */
 
-    createAnimatedAlert = function(animationURL, alertTitle = `Test Message`, alertMessage = `This is a test message`) {
-        if (this.storage.totalGifAlerts == undefined) { this.storage.totalGifAlerts = 0 }
-        if (this.storage.isStreaming) {
-            this.storage.totalGifAlerts++;
-            let configuration = this.storage.configurations.widget_settings.alert;
-            let maxDescriptionLength = configuration.max_text_length;
-            let animationStyle = configuration.animation_style;
-            let docNotification = document.getElementById(`alert_notification`);
-            let docTitle = document.getElementById(`alert_title`);
-            let docMessage = document.getElementById(`alert_description`);
-            docNotification.style.display = `block`;
-            docNotification.src = `${animationURL}?=${this.storage.totalGifAlerts}`;
-            if (alertMessage.length > maxDescriptionLength) { alertMessage = alertMessage.substring(0, maxDescriptionLength) + `...`;}
-            docMessage.style = animationStyle;
-            docTitle.style = animationStyle;
-            docTitle.textContent = alertTitle;
-            docMessage.textContent = alertMessage;
-            setTimeout(() => { docNotification.style.display = `none`; }, 6.8 * 1000);
-            setTimeout(() => { docTitle.textContent = ``; docMessage.textContent = ``; docNotification.src = ``; docMessage.style = ``; docTitle.style = ``; }, 6.8 * 1000);
-        }
-        setTimeout(() => { this.storage.isQueryRunning = false; }, 6.8 * 1000);
-    };
+    createDashboardPriorityAlert = function(alert) {
+        if (this.storage.isPriorityAlertPlaying == undefined) { this.storage.isPriorityAlertPlaying = false }
+        if (this.storage.eas != true) { return }
+        if (this.storage.isPriorityAlertPlaying) { return }
+        this.storage.isPriorityAlertPlaying = true;
+        this.library.playAudio(this.storage.configurations.tone_sounds.uniden, false);
+        dashboard_class.injectNotification({
+            title: `Critical Information - ${alert.details.name}`,
+            subtext: `Locations Impacted: ${alert.details.locations}`,
+            description: `${alert.details.description.substring(0, 3000)}...<br><br>`,
+            rows: 3,
+            parent: `_body.base`,
+            buttons: [
+                {
+                    name: `Listen`,
+                    className: `button-primary`,
+                    function: () => {
+                        let synth = window.speechSynthesis;
+                        let utter = new SpeechSynthesisUtterance(`${alert.details.description}`);
+                        let preferredVoices = [ "Microsoft Aria Online (Natural) - English (United States)", "Google US English", "Google UK English Female", "Google UK English Male" ];
+                        let voices = synth.getVoices();
+                        utter.lang = `en-US`;
+                        utter.volume = 1;
+                        utter.rate = 1;
+                        utter.pitch = 1;
+                        utter.voice = voices.find(voice => preferredVoices.includes(voice.name)) || voices.find(voice => voice.lang.startsWith("en")) || voices[0];  utter.onend = () => {
+                            this.storage.isPriorityAlertPlaying = false;
+                        };
+                        synth.cancel();
+                        synth.speak(utter);
+                        this.library.stopAllSounds();
+                        dashboard_class.clearAllPopups();
+                    }
+                },
+                {
+                    name: `Ignore Alert`,
+                    className: `button-danger`,
+                    function: () => {
+                        dashboard_class.clearAllPopups();
+                        this.library.stopAllSounds();
+                        this.storage.isPriorityAlertPlaying = false;
+                    }
+                }
+            ]
+        })
+        setTimeout(() => { this.storage.isPriorityAlertPlaying = false; }, 10 * 1000);
+    }  
+
 
     /**
-      * @function createAnimatedAlertv2
+      * @function createAnimatedAlert
       * @description This is the version 2 of the alert function. This doesn't use a GIF but rather a div and animations...
       * This is a more efficient way instead of calling 90 different gifs and wasting resources. Plus we can use CSS and style 
       * the alert to your liking!
@@ -130,7 +159,7 @@ class Alerts {
       * @param {Object} alert - The alert object containing details about the alert.
       */
 
-    createAnimatedAlertv2 = function(alert) {
+    createAnimatedAlert = function(alert) {
         if (this.storage.isStreaming) {
             let timeExpiresString = `Invalid Time`
             let timeIssuedString = `Invalid Time`
@@ -162,7 +191,7 @@ class Alerts {
             eventTags = JSON.stringify(eventTags).replace(/\"/g, ``).replace(/,/g, `, `).replace(/\[/g, ``).replace(/\]/g, ``)
             if (locationsImpacted.length > maxDescriptionLength) {locationsImpacted = locationsImpacted.substring(0, maxDescriptionLength) + `...`;}
 
-            let colorScheme = this.storage.configurations.overlay_settings.color_scheme;
+            let colorScheme = this.storage.configurations.scheme;
             let getColor = colorScheme.find(type => eventName.includes(type.type)) || colorScheme.find(type => type.type == `Default`);
             let colorLight = getColor.color.light;
             let colorDark = getColor.color.dark;
@@ -211,17 +240,15 @@ class Alerts {
       * 
       * @async
       * @param {Array} alertQueue - The queue of alerts to process.
-      * @param {boolean} [v2=false] - If true, uses the v2 alert display method.
       */
 
-    triggerAlertQueue = async function(v2=false) {
+    triggerAlertQueue = async function() {
         if (this.storage.isQueryRunning == undefined) { this.storage.isQueryRunning = false }
         if (this.storage.alertsQueue.length == 0) { return }
         if (this.storage.isQueryRunning == true) { return } else { this.storage.isQueryRunning = true }
         let nextAlert = this.storage.alertsQueue.length - 1
         let currentAlert = this.storage.alertsQueue[nextAlert]
-        if (v2) { this.createAnimatedAlertv2(currentAlert) }
-        if (!v2) { this.createAnimatedAlert(currentAlert.metadata.gif, `${currentAlert.details.name} (${currentAlert.details.type})`, currentAlert.details.locations) }
+        this.createAnimatedAlert(currentAlert)
         if (!currentAlert.metadata.onlyBeep) { 
             if (currentAlert.metadata.autobeep) { 
                 this.library.playAudio(this.storage.configurations.tone_sounds.beep, false)
@@ -251,7 +278,7 @@ class Alerts {
     triggerDynamicColors = function() {
         let light = document.getElementsByClassName(`p_boxlight`)
         let dark = document.getElementsByClassName(`p_boxdark`)
-        let colorScheme = this.storage.configurations.overlay_settings.color_scheme;
+        let colorScheme = this.storage.configurations.scheme;
         let alertsScheme = colorScheme.filter(type => { return this.storage.active.some(alert => alert.details.name.includes(type.type));});    
         if (this.storage.active.length == 0 || alertsScheme.length == 0) {
             let default_c = colorScheme.find(type => {return type.type == `Default`})

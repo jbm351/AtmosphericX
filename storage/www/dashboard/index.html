@@ -4,11 +4,13 @@
         <title>AtmosphericX - Dashboard</title>
         <meta name="viewport" content="width=device-width initial-scale=0.5, maximum-scale=0.5, user-scalable=no minimal-ui">
         <link rel="stylesheet" href="../assets/styles/dashboard.css">
+        <link rel="stylesheet" href="../assets/styles/editor.css">
         <link rel="stylesheet" href="../assets/styles/responsive-dashboard.css">
         <link rel="stylesheet" href="../../assets/styles/streaming.css">
         <link rel="icon" href="/assets/media/dashboard/favicon.ico" type="image/x-icon">
         <script src="../assets/javascript/library.js"></script>
         <script src="../assets/javascript/dashboard.js"></script>
+        <script src="../assets/javascript/editor.js"></script>
         <script src="../assets/javascript/alerts.js"></script>
         <script src="../../assets/javascript/static.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
@@ -16,79 +18,12 @@
     </head>
     <body id="_body.base">
         <i class="hamburger-menu fa fa-bars" id="hamburger" onclick="dashboard_class.triggerHamburgerListener()"></i>
-        <div class="interactive-sidebar" data-state="closed">
+        <div class="interactive-sidebar"  data-state="closed">
             <img src="/assets/media/dashboard/logo.png" alt="Logo" class="sidebar-logo">
             <hr class="sidebar-hr">
-            <div class="sidebar-item" onclick="dashboard_class.navigationListener('_navigation.home')">
-                <i class="fas fa-house-user"></i>
-                <span>Dashboard</span>
-            </div>
-            <div class="sidebar-item" onclick="dashboard_class.navigationListener('_navigation.alerts')">
-                <i class="fas fa-exclamation-triangle"></i>
-                <span>Active Alerts</span>
-            </div>
-            <div class="sidebar-item" onclick="dashboard_class.navigationListener('_navigation.lsr')">
-                <i class="fas fa-flag"></i>
-                <span>Reports Index</span>
-            </div>
-            <div class="sidebar-item" onclick="dashboard_class.navigationListener('_navigation.dicussions')">
-                <i class="fas fa-cloud-sun"></i>
-                <span>Discussions</span>
-            </div>
-            <div class="sidebar-item" onclick="dashboard_class.navigationListener('_navigation.torProbability')">
-                <i class="fas fa-chart-bar"></i>
-                <span>TOR Probability</span>
-            </div>
-            <div class="sidebar-item" onclick="dashboard_class.navigationListener('_navigation.svrProbability')">
-                <i class="fas fa-chart-bar"></i>
-                <span>SVR Probability</span>
-            </div>
-            <div class="sidebar-item" onclick="dashboard_class.navigationListener('_navigation.nwws')">
-                <i class="fas fa-comments"></i>
-                <span>NWWS-OI</span>
-            </div>
-            <div class="sidebar-item" onclick="dashboard_class.navigationListener('_navigation.spc')">
-                <i class="fas fa-project-diagram"></i>
-                <span>SPC Models</span>
-            </div>
-            <div class="sidebar-item" onclick="dashboard_class.navigationListener('_navigation.spotternetwork')">
-                <i class="fas fa-globe"></i>
-                <span>Spotter Network</span>
-            </div>
-            <div class="sidebar-item" onclick="dashboard_class.navigationListener('_navigation.radio')">
-                <i class="fas fa-broadcast-tower"></i>
-                <span>Radio Services</span>
-            </div>
-            <div class="sidebar-item" onclick="dashboard_class.navigationListener('_navigation.external')">
-                <i class="fas fa-satellite-dish"></i>
-                <span>Services</span>
-            </div>
-            <div class="sidebar-item" onclick="dashboard_class.navigationListener('_navigation.help')">
-                <i class="fa fa-hands-helping"></i>
-                <span>General Support</span>
-            </div>
-            <div class="sidebar-item" onclick="window.open('/settings', '_blank', 'width=602,height=800');">
-                <i class="fas fa-cogs"></i>
-                <span>Widget Settings</span>
-            </div>
-            <div class="sidebar-item" onclick="dashboard_class.triggerAccountListner()">
-                <i class="fas fa-user"></i>
-                <span>My Account</span>
-            </div>
-            <div class="sidebar-item" onclick="window.open('https://ko-fi.com/k3yomi', '_blank', 'width=1000,height=1000');">
-                <i class="fas fa-donate"></i>
-                <span>Support Me</span>
-            </div>
-            <div class="sidebar-item" onclick="window.open('https://github.com/k3yomi/atmosphericx', '_blank', 'width=1000,height=1000');">
-                <i class="fas fa-external-link-square-alt"></i>
-                <span>Github</span>
-            </div>
-            <div class="sidebar-item" onclick="window.open('https://k3yomi.github.io/blog/posts/atmosphericx/', '_blank', 'width=1000,height=1000');">
-                <i class="fas fa-external-link-square-alt"></i>
-                <span>Documentation</span>
-            </div>
+            <div id="_sidebar.data"></div>
             <footer class="sidebar-footer">
-                <p>Project AtmosphericX <small><span id='version'></span></small><br><small>Created with ❤️ by k3yomi (KiyoWx)</small></p>
+                <p>Project AtmosphericX <small><span id='version'></span></small><br><small>Made with ❤️ k3yomi & StarflightVR</small></p>
             </footer>
         </div>
         <div class="wrapper">
@@ -100,7 +35,7 @@
                         </p>
                     </div>
                     <div class="data-card"> 
-                        <h1 class="data-card-title">👋 Welcome back, <span id="_home.accountname">[Account Name]</span></h1>
+                        <h1 class="data-card-title">👋 Welcome to AtmosphericX, <span id="_home.accountname">[Account Name]</span></h1>
                         <hr class="data-card-hr"> 
                         <p class="data-card-description">
                             Project AtmosphericX is a web-based platform and widget manager tailored for amateur weather enthusiasts, storm chasers, and anyone passionate about understanding and tracking severe weather events. It provides near real-time alerts and updates, ensuring users stay informed about critical weather conditions as they unfold.
@@ -244,32 +179,30 @@
                     </div>
                 </div>
             </div>
+            <div id="_navigation.configurations" style="display: none;" type="menu">
+                <div class="grid-parent" style="grid-template-columns: repeat(1, 1fr);">
+                    <div class="data-card-parent"> 
+                        <h1 class="data-card-title">Configurations (Experimental)</span></h1>
+                        <hr class="data-card-hr"> 
+                        <div id="hub.configurations" class="grid-area" data-original-grid-template-columns="3" style="grid-template-columns: repeat(3, 1fr);"></div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </body>
     <script>
         let dashboard_class;
         let alert_class;
         let library = new Library()
+        library.detectMobileDevice()
         library.createWebsocketSession([`wxRadio`, `updates`, `torprob`, `svrprob`, `public`, `active`, `discussions`, `notifications`, `header`, `reports`, `spotters`, `manual`, `wire`, `random`]).then(async () => {
-            alert_class = new Alerts(library, true)
-            dashboard_class = new Dashboard(library, false)
-            library.createNotification(`Welcome back <span style="color: green;">${localStorage.getItem('atmosx.cached.username') || 'Default User'}</span>`)
-            dashboard_class.updateThread()
-            dashboard_class.spawnGeneralSetupHub()
-            dashboard_class.spawnExternalServices()
-            dashboard_class.spawnStormPredictionCenterModels()
-            if (library.storage.updates.changelogs && Array.isArray(library.storage.updates.changelogs) && library.storage.updates.changelogs.length > 0) {
-                document.getElementById('version').innerHTML = `v${library.storage.updates.version}`
-                document.getElementById('atmosx.header.https').innerHTML = `${library.storage.updates.updated} - v${library.storage.updates.version}<ul style="padding-left: 20px;">${library.storage.updates.changelogs.map(item => `<li>${item}</li>`).join('')}</ul>`;
-                if (library.storage.updates.headline != ``) {
-                    document.getElementById('data-card-headline-parent').style.display = 'block'
-                    document.querySelector('.data-card-headline').innerHTML = library.storage.updates.headline
-                }
-            } else {
-                document.getElementById('atmosx.header.https').innerHTML = `No changelogs available for this version.`;
-            }
+            alert_class = new Alerts(library)
+            dashboard_class = new Dashboard(library, true)
+            cfg_class = new CfgEditor(library)
             document.addEventListener('onCacheUpdate', async (event) => {
-                alert_class.syncAlerts(true)
+                let storage = alert_class.syncAlerts(true)
+                if (storage.length > 0 && library.storage.sounds == true) { await alert_class.triggerAlertQueue() }
                 await dashboard_class.updateThread()
             })
         })

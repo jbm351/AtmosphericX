@@ -53,6 +53,7 @@ class Hooks {
             subject: title, 
             text: message, 
         })
+        return { success: true, message: `Successfully sent email to ${settings.recipient}` }
     }
 
     /**
@@ -64,15 +65,19 @@ class Hooks {
       */
 
     sendWebhook = async function(title, message) {
-        let settings = loader.cache.configurations.project_settings.webhook_settings
-        let endpoint = settings.discord_webhook
-        let content = settings.content
-        let displayName = settings.webhook_display
-        if (!settings.enabled) { return }
-        if (new Date().getTime() - loader.static.webhookTimeout < 500) { return } 
-        loader.static.webhookTimeout = new Date().getTime()
-        let embed = { title: title, description: message, color: 16711680, timestamp: new Date().toISOString(), footer: {text: displayName} };
-        await loader.packages.axios.post(endpoint, { username: displayName, content: content || "", embeds: [embed] })
+        let settings = loader.cache.configurations.project_settings.webhook_settings;
+        let endpoint = settings.discord_webhook;
+        let content = settings.content;
+        let displayName = settings.webhook_display;
+        let cooldownTime = settings.webhook_cooldown
+        if (!settings.enabled) { return; }
+        let currentTime = new Date().getTime();
+        loader.static.webhookTimestamps.push({ time: currentTime, title: title });
+        loader.static.webhookTimestamps = loader.static.webhookTimestamps.filter(timestamp => timestamp.time > currentTime - cooldownTime * 1000);
+        if (loader.static.webhookTimestamps.length > 3) { return; }
+        let embed = { title: title, description: message, color: 16711680, timestamp: new Date().toISOString(), footer: { text: displayName } };
+        try { await loader.packages.axios.post(endpoint, { username: displayName, content: content || "", embeds: [embed] }); } catch (error) { return { success: false, message: `Failed to send webhook message.` } }
+        return { success: true, message: `Successfully sent webhook message.` }
     }
 
 
@@ -190,7 +195,8 @@ class Hooks {
         loader.cache.public = {
             warning: "This is a public configuration, this prevents the user from being able to view private information.",
             tone_sounds: loader.cache.configurations.tone_sounds,
-            overlay_settings: loader.cache.configurations.overlay_settings,
+            default_text: loader.cache.configurations.project_settings.default_alert_text,
+            scheme: loader.cache.configurations.scheme,
             spc_outlooks: loader.cache.configurations.spc_outlooks,
             third_party_services: loader.cache.configurations.third_party_services,
             widget_settings: loader.cache.configurations.widget_settings,
@@ -198,6 +204,39 @@ class Hooks {
             version: this.getCurrentVersion(),
         }
         return {success: true, message: `Successfully reloaded configurations.`}
+    }
+
+    /**
+      * @function filteringHtml
+      * @description Filters HTML tags from a given string or object.
+      *
+      * @param {string|object} rawBody - The string or object to filter HTML tags from.
+      * @return {string|object} - The filtered string or object with HTML tags removed.
+      */
+
+    filteringHtml = function(rawBody) {
+        if (typeof rawBody === 'string') {
+            try {
+                let parsed = JSON.parse(rawBody);
+                rawBody = parsed;
+            } catch (e) {
+                rawBody = rawBody.replace(/<[^>]*>/g, ``);
+                return rawBody;
+            }
+        }
+        if (Array.isArray(rawBody)) {
+            return rawBody.map(item => this.filteringHtml(item));
+        } else if (typeof rawBody === 'object' && rawBody !== null) {
+            for (let key in rawBody) {
+                if (typeof rawBody[key] === 'string') {
+                    rawBody[key] = rawBody[key].replace(/<[^>]*>/g, ``);
+                } else if (typeof rawBody[key] === 'object') {
+                    rawBody[key] = this.filteringHtml(rawBody[key]);
+                }
+            }
+            return rawBody;
+        }
+        return rawBody;
     }
 
     /**
